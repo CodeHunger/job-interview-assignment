@@ -12,7 +12,7 @@ class LowStockEmailTest extends TestCase
     /**
      * A basic feature test example.
      */
-    public function test_low_stock_email() {
+    public function test_it_can_send_low_stock_email() {
         Mail::fake();
 
         event(new LowProductStockEvent([1,2,3]));

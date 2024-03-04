@@ -3,25 +3,35 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\Product;
 use JsonSerializable;
 
-class OrderViewModel implements JsonSerializable {
-
+readonly class OrderViewModel implements JsonSerializable
+{
     public array $products;
+
+    /**
+     * @param int $id
+     * @param string $created
+     * @param Product[] $products
+     */
     public function __construct(
-        public readonly int $id,
-        public readonly string $created,
-        iterable $products = [],
+        public int    $id,
+        public string $created,
+        iterable      $products = [],
     )
     {
-        $this->products = [];
+        $productAmountViewModels = [];
         foreach ($products as $product) {
-            $this->products[] = ProductAmountViewModel::fromProduct($product, $product->pivot->amount);
+            $productAmountViewModels[] = ProductAmountViewModel::fromProduct($product, $product->pivot->amount);
         }
+
+        $this->products = $productAmountViewModels;
     }
 
-    public function jsonSerialize(): mixed {
-        return (array) $this;
+    public function jsonSerialize(): array
+    {
+        return (array)$this;
     }
 
     public static function fromOrder(Order $order): OrderViewModel

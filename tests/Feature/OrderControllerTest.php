@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Events\LowProductStockEvent;
+use App\Http\Controllers\OrderController;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -13,21 +14,24 @@ class OrderControllerTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_it_can_get_order_index(): void {
+    const USER_ID = 1;
+    const PRODUCT_ID = 1;
+
+    public function test_it_can_list_users_orders(): void {
         $expectedResult = '[{"products":[{"id":1,"properties":null,"productType":"solarPanel","amount":5},{"id":3,"properties":null,"productType":"solarPanel","amount":5},{"id":25,"properties":null,"productType":"inverter","amount":1}],"id":1,"created":"2024-03-04 09:58:53"}]';
         $response = $this->getJson('/api/orders?userId=1');
         $response->assertStatus(200);
         $this->assertEquals($expectedResult, $response->getContent());
     }
 
-    public function test_it_can_get_index_error(): void {
+    public function test_it_can_get_an_exception_when_getting_orders(): void {
         $response = $this->getJson('/api/orders');
-        $response->assertStatus(403);
+        $response->assertStatus(400);
     }
 
     public function test_it_can_store_order(): void {
         $response = $this->postJson('/api/orders', [
-            "userId" => 1,
+            "userId" => self::USER_ID,
             "products" => [
                 [
                     "id" => 1,
@@ -56,8 +60,8 @@ class OrderControllerTest extends TestCase
     }
 
     public function test_it_can_update_stock(): void {
-        $response = $this->postJson('/api/orders', [
-            "userId" => 1,
+        $this->postJson('/api/orders', [
+            "userId" => self::USER_ID,
             "products" => [
                 [
                     "id" => 2,
@@ -78,14 +82,14 @@ class OrderControllerTest extends TestCase
         $this->assertEquals(880, $product2->stock);
     }
 
-    public function test_it_can_boardcast_events(): void {
+    public function test_it_can_boardcast_low_stock_event(): void {
         Event::fake();
 
         $this->postJson('/api/orders', [
-            "userId" => 1,
+            "userId" => self::USER_ID,
             "products" => [
                 [
-                    "id" => 1,
+                    "id" => self::PRODUCT_ID,
                     "amount" => 100
                 ],
             ],
@@ -94,10 +98,10 @@ class OrderControllerTest extends TestCase
         Event::assertNotDispatched(LowProductStockEvent::class);
 
         $this->postJson('/api/orders', [
-            "userId" => 1,
+            "userId" => self::USER_ID,
             "products" => [
                 [
-                    "id" => 1,
+                    "id" => self::PRODUCT_ID,
                     "amount" => 800
                 ],
             ],
@@ -109,7 +113,7 @@ class OrderControllerTest extends TestCase
             "userId" => 1,
             "products" => [
                 [
-                    "id" => 1,
+                    "id" => self::PRODUCT_ID,
                     "amount" => 10
                 ],
             ],
@@ -118,54 +122,57 @@ class OrderControllerTest extends TestCase
         Event::assertDispatched(LowProductStockEvent::class, 1);
     }
 
-    public function test_it_can_get_stock_exceptions(): void {
+    public function test_it_can_get_order_4xx_exceptions(): void {
+        $unknownId = 9999999999;
+        $expectedHttpStatusCode = 400;
+
         // user id missing
         $this->postJson('/api/orders', [
             "products" => [],
-        ])->assertStatus(403);
+        ])->assertStatus($expectedHttpStatusCode);
 
         // product id missing
         $this->postJson('/api/orders', [
-            "userId" => 1,
-        ])->assertStatus(403);
+            "userId" => self::USER_ID,
+        ])->assertStatus($expectedHttpStatusCode);
 
         // unknown user
         $this->postJson('/api/orders', [
-            "userId" => 99999999999,
+            "userId" => $unknownId,
             "products" => [],
-        ])->assertStatus(403);
+        ])->assertStatus($expectedHttpStatusCode);
 
         // unknown product
         $this->postJson('/api/orders', [
-            "userId" => 1,
+            "userId" => self::USER_ID,
             "products" => [
                 [
-                    "id" => 9999999999999999999,
-                    "amount" => 9
+                    "id" => $unknownId,
+                    "amount" => OrderController::MAX_ORDER_AMOUNT
                 ],
             ],
-        ])->assertStatus(403);
+        ])->assertStatus($expectedHttpStatusCode);
 
         // max order size exceeded
         $this->postJson('/api/orders', [
-            "userId" => 1,
+            "userId" => self::USER_ID,
             "products" => [
                 [
-                    "id" => 1,
-                    "amount" => 1000001
+                    "id" => self::PRODUCT_ID,
+                    "amount" => OrderController::MAX_ORDER_AMOUNT + 1
                 ],
             ],
-        ])->assertStatus(403);
+        ])->assertStatus($expectedHttpStatusCode);
 
         // product out of stock
         $this->postJson('/api/orders', [
-            "userId" => 1,
+            "userId" => self::USER_ID,
             "products" => [
                 [
-                    "id" => 1,
-                    "amount" => 10000
+                    "id" => self::PRODUCT_ID,
+                    "amount" => OrderController::MAX_ORDER_AMOUNT
                 ],
             ],
-        ])->assertStatus(403);
+        ])->assertStatus($expectedHttpStatusCode);
     }
 }
