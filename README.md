@@ -3,15 +3,27 @@
 
 
 ### About
-This project was created based on a assignment for a job interview.
+This (Laravel) project was created based on a assignment for a job interview.
 
 ### Setup
 
-1: Copy `.env.example` to `.env` and add `DB_*` properties to the `.env` file
+1: Copy `.env.example` to `.env` and fill in `DB_*` properties to the `.env` file
 
 2: Install libraries
 ```
 composer install
+```
+
+3: Run migrations
+
+```
+php artisan migrate
+```
+
+4: Seed database
+
+```
+php artisan db:seed
 ```
 
 ### Run code
